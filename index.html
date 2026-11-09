@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Share gold price update</title>
+<style>
+  body { margin: 0; font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+         background: #f6f6f7; color: #222; }
+  main { max-width: 520px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18px; margin: 4px 0 12px; }
+  img { width: 100%; border-radius: 10px; background: #fff; display: block; }
+  pre { white-space: pre-wrap; font: 14px/1.45 inherit; font-family: inherit; background: #fff;
+        border-radius: 10px; padding: 12px; margin: 12px 0; }
+  button, a.btn { display: block; width: 100%; box-sizing: border-box; border: 0; border-radius: 12px;
+         padding: 16px; font-size: 17px; font-weight: 600; margin: 10px 0; text-align: center;
+         text-decoration: none; cursor: pointer; }
+  #share { background: #25D366; color: #fff; }
+  .secondary { background: #e8e8ea; color: #222; }
+  #status { font-size: 14px; color: #666; min-height: 1.2em; }
+  .steps { font-size: 14px; color: #555; margin: 0 0 8px; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Share to your Gold Savers groups</h1>
+  <ol class="steps">
+    <li>Tap <b>Share photo + text</b></li>
+    <li>Choose <b>WhatsApp</b></li>
+    <li>Tick your 5 groups → Send</li>
+  </ol>
+  <button id="share" disabled>Loading…</button>
+  <div id="status"></div>
+  <img id="chart" alt="GAP price 30 days history chart" hidden>
+  <pre id="text" hidden></pre>
+  <button id="copy" class="secondary" hidden>Copy text</button>
+  <a id="save" class="btn secondary" download hidden>Save photo</a>
+</main>
+<script>
+(function () {
+  var id = new URLSearchParams(location.search).get("id") || "";
+  var status = document.getElementById("status");
+  var shareBtn = document.getElementById("share");
+  if (!/^[0-9-]+$/.test(id)) { status.textContent = "This link is incomplete."; return; }
+  var base = "alerts/" + id;
+  var file = null, text = "";
+
+  function load(tries) {
+    Promise.all([
+      fetch(base + ".txt", { cache: "no-store" }).then(function (r) { if (!r.ok) throw r.status; return r.text(); }),
+      fetch(base + ".png", { cache: "no-store" }).then(function (r) { if (!r.ok) throw r.status; return r.blob(); })
+    ]).then(function (res) {
+      text = res[0];
+      file = new File([res[1]], "gold-price-" + id + ".png", { type: "image/png" });
+      var url = URL.createObjectURL(res[1]);
+      var img = document.getElementById("chart"); img.src = url; img.hidden = false;
+      var pre = document.getElementById("text"); pre.textContent = text; pre.hidden = false;
+      var save = document.getElementById("save"); save.href = url; save.download = file.name; save.hidden = false;
+      document.getElementById("copy").hidden = false;
+      status.textContent = "";
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        shareBtn.disabled = false; shareBtn.textContent = "📲 Share photo + text";
+      } else {
+        shareBtn.textContent = "Sharing isn't supported in this browser";
+        status.textContent = "Use Save photo and Copy text, then send them in WhatsApp.";
+      }
+    }).catch(function () {
+      if (tries > 0) {
+        status.textContent = "Getting the latest chart ready…";
+        setTimeout(function () { load(tries - 1); }, 5000);
+      } else {
+        status.textContent = "This update isn't available. Please try again in a minute.";
+        shareBtn.textContent = "Not available";
+      }
+    });
+  }
+
+  shareBtn.addEventListener("click", function () {
+    navigator.share({ files: [file], text: text }).catch(function () {});
+  });
+  document.getElementById("copy").addEventListener("click", function () {
+    navigator.clipboard.writeText(text).then(function () { status.textContent = "Text copied."; },
+      function () { status.textContent = "Couldn't copy. Long-press the text above instead."; });
+  });
+  load(24);
+})();
+</script>
+</body>
+</html>
