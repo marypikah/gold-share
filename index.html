@@ -16,7 +16,7 @@
   button, a.btn { display: block; width: 100%; box-sizing: border-box; border: 0; border-radius: 12px;
          padding: 16px; font-size: 17px; font-weight: 600; margin: 10px 0; text-align: center;
          text-decoration: none; cursor: pointer; }
-  #share { background: #25D366; color: #fff; }
+  #share, #sharems { background: #25D366; color: #fff; }
   .secondary { background: #e8e8ea; color: #222; }
   #status { font-size: 14px; color: #666; min-height: 1.2em; }
   .steps { font-size: 14px; color: #555; margin: 0 0 8px; padding-left: 20px; }
@@ -26,14 +26,18 @@
 <main>
   <h1>Share to your Gold Savers groups &amp; Channel</h1>
   <ol class="steps">
-    <li>Tap <b>Share photo + text</b> → <b>WhatsApp</b> → tick your 5 groups → Send</li>
-    <li>Tap <b>Share photo + text</b> again → <b>WhatsApp</b> → choose your <b>Channel</b> → Send</li>
+    <li>Tap <b>Share photo + English</b> → <b>WhatsApp</b> → tick your 5 groups → Send</li>
+    <li>Tap <b>Share Malay text</b> → <b>WhatsApp</b> → tick the same 5 groups → Send</li>
+    <li>Repeat 1 and 2, choosing your <b>Channel</b></li>
   </ol>
   <button id="share" disabled>Loading…</button>
+  <button id="sharems" hidden>📲 Share Malay text</button>
   <div id="status"></div>
   <img id="chart" alt="GAP price 30 days history chart" hidden>
   <pre id="text" hidden></pre>
-  <button id="copy" class="secondary" hidden>Copy text</button>
+  <pre id="textms" hidden></pre>
+  <button id="copy" class="secondary" hidden>Copy English text</button>
+  <button id="copyms" class="secondary" hidden>Copy Malay text</button>
   <a id="save" class="btn secondary" download hidden>Save photo</a>
 </main>
 <script>
@@ -43,14 +47,21 @@
   var shareBtn = document.getElementById("share");
   if (!/^[0-9-]+$/.test(id)) { status.textContent = "This link is incomplete."; return; }
   var base = "alerts/" + id;
-  var file = null, text = "";
+  var file = null, text = "", textMs = "";
 
   function load(tries) {
     Promise.all([
       fetch(base + ".txt", { cache: "no-store" }).then(function (r) { if (!r.ok) throw r.status; return r.text(); }),
-      fetch(base + ".png", { cache: "no-store" }).then(function (r) { if (!r.ok) throw r.status; return r.blob(); })
+      fetch(base + ".png", { cache: "no-store" }).then(function (r) { if (!r.ok) throw r.status; return r.blob(); }),
+      fetch(base + ".ms.txt", { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }, function () { return ""; })
     ]).then(function (res) {
       text = res[0];
+      textMs = res[2];
+      if (textMs) {
+        var pm = document.getElementById("textms"); pm.textContent = textMs; pm.hidden = false;
+        document.getElementById("copyms").hidden = false;
+        if (navigator.share) document.getElementById("sharems").hidden = false;
+      }
       file = new File([res[1]], "gold-price-" + id + ".png", { type: "image/png" });
       var url = URL.createObjectURL(res[1]);
       var img = document.getElementById("chart"); img.src = url; img.hidden = false;
@@ -59,7 +70,7 @@
       document.getElementById("copy").hidden = false;
       status.textContent = "";
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        shareBtn.disabled = false; shareBtn.textContent = "📲 Share photo + text";
+        shareBtn.disabled = false; shareBtn.textContent = "📲 Share photo + English";
       } else {
         shareBtn.textContent = "Sharing isn't supported in this browser";
         status.textContent = "Use Save photo and Copy text, then send them in WhatsApp.";
@@ -78,10 +89,17 @@
   shareBtn.addEventListener("click", function () {
     navigator.share({ files: [file], text: text }).catch(function () {});
   });
-  document.getElementById("copy").addEventListener("click", function () {
-    navigator.clipboard.writeText(text).then(function () { status.textContent = "Text copied."; },
-      function () { status.textContent = "Couldn't copy. Long-press the text above instead."; });
+  document.getElementById("sharems").addEventListener("click", function () {
+    navigator.share({ text: textMs }).catch(function () {});
   });
+  function copier(get, label) {
+    return function () {
+      navigator.clipboard.writeText(get()).then(function () { status.textContent = label + " text copied."; },
+        function () { status.textContent = "Couldn't copy. Long-press the text instead."; });
+    };
+  }
+  document.getElementById("copy").addEventListener("click", copier(function () { return text; }, "English"));
+  document.getElementById("copyms").addEventListener("click", copier(function () { return textMs; }, "Malay"));
   load(24);
 })();
 </script>
